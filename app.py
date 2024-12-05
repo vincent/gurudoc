@@ -17,7 +17,9 @@ import random
 # - in a conda env: 'conda env config vars set OPENAI_API_KEY=api_key', then 'conda deactivate', then 'conda activate {env_name}'
 # run script with : streamlit run app.py
 
-DATA_DIR = "./data"
+PRODUCT = "PRODUCT"
+PRODUCT_DESC = "PRODUCT_DESC"
+DATA_DIR = "./workitems"
 INDEX_DIR = "./storage"
 LLM_MODEL_NAME = "gpt-4o-mini"
 
@@ -57,9 +59,9 @@ def prepare_template():
     Prepare a prompt template for the QA system.
     """
     text_qa_template_str = """
-    Tu es Gourou Fabulus, un être omniscient et bienveillant qui a atteint l’illumination suprême
-    en étudiant la psychologie évolutionnaire.
-    Tu réponds aux questions de tes disciples, en les tutoyant et en les appelant « Cher disciple ».
+    Tu es GuruDoc, le ProjectOwner du produit {PRODUCT} {PRODUCT_DESC}.
+    Tu as l'ensemble des connaissances en français.
+    Tu aides les intervenants à faire des recherches sur la base de connaissances et de ressources disponibles.
     L’un d’eux t’a posé cette question : {query_str}
     Voilà tout ce que tu sais à ce sujet :
     --------
@@ -68,18 +70,12 @@ def prepare_template():
     À partir de ces connaissances à toi, et uniquement à partir d’elles, réponds en français à la question.
     Écris une réponse claire et concise.
     """
-    if random.random() < 0.5:
-        text_qa_template_str += "Termine par une blague sur la géologie."
     qa_template = PromptTemplate(text_qa_template_str)
     return qa_template
 
 
 st.markdown("""
-            <img src='https://homofabulus.com/wp-content/uploads/2023/04/logo2-100x100.png' style='display: block; margin-left: auto; margin-right: auto; width: 60px;'>
-            <div style='text-align: center;'>
-            <h1>Gourou Fabulus</h1>
-            <h5>Coach, mentor, ami & compte Tipeee</h5>
-            </div>
+            <div style='text-align: center;'><h1>GuruDoc</h1></div>
             """
             , unsafe_allow_html=True)
 
@@ -88,13 +84,13 @@ if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Oui ?"}]
 
 # Capture user input and append it to session state messages
-if prompt := st.chat_input("Que veux-tu savoir, humain ?"):
+if prompt := st.chat_input("Que veux-tu savoir ?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-gouroufabulus_filepath = "media/gourou.png"
+avatar_filepath = "media/gourou.png"
 # Display chat messages with appropriate avatars
 for message in st.session_state.messages:
-    with st.chat_message(message["role"], avatar=gouroufabulus_filepath if message["role"] == "assistant" else '💰'):
+    with st.chat_message(message["role"], avatar=avatar_filepath if message["role"] == "assistant" else '💰'):
         st.write(message["content"])
 
 
@@ -102,18 +98,16 @@ qa_template = prepare_template()
 query_engine = index.as_query_engine(text_qa_template=qa_template, similarity_top_k=2)
 
 if st.session_state.messages[-1]["role"] == "user":
-    with st.chat_message("assistant", avatar=gouroufabulus_filepath):
-        with st.spinner("Vous avez osé sortir Gourou Fabulus de son sommeil ! Patientez deux secondes le temps qu’il se réveille"):
+    with st.chat_message("assistant", avatar=avatar_filepath):
+        with st.spinner("Vous avez osé sortir GuruDoc de son sommeil ! Patientez deux secondes le temps qu’il se réveille"):
             response = query_engine.query(prompt)
         if response:
             # get source files used to generate the answer, and link to the corresponding youtube videos:
             source_files = [node.metadata['file_name'] for node in response.source_nodes]
             source_files = list(set(source_files))
-            text_to_add = "\n\nTu pourras peut-être trouver plus d’infos dans ces vidéos (peut-être, j’ai pas vérifié):"
+            text_to_add = "\n\nTu pourras peut-être trouver plus d’infos dans ces documents:"
             for i, file in enumerate(source_files):
-                video_id = file[-18:-7]
-                video_url = f"https://www.youtube.com/watch?v={video_id}"
-                text_to_add += f"\n<a href='{video_url}' target='_blank'>{file[11:-19].replace('_', ' ')}</a>"
+                text_to_add += f"\n<a target='_blank'>{file}</a>"
                 if i < len(source_files) - 1:
                     text_to_add += " ou"
             st.markdown(response.response + text_to_add, unsafe_allow_html=True)
